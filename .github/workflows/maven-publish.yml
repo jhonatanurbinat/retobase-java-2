@@ -33,5 +33,5 @@ jobs:
       
     - name: Build Docker image
       run: |
-        docker build -t ${{ secrets.ECR_REPOSITORY_NAME }}:1 .
+        docker build -t ${{ secrets.ECR_REPOSITORY_NAME }}::$GITHUB_SHA .
 
