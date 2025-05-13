@@ -8,6 +8,12 @@ on:
 
 env:
   AWS_REGION: us-east-1
+  ECR_REPOSITORY: test-repository           # set this to your Amazon ECR repository name
+  ECS_SERVICE: MY_ECS_SERVICE                 # set this to your Amazon ECS service name
+  ECS_CLUSTER: MY_ECS_CLUSTER                 # set this to your Amazon ECS cluster name
+  ECS_TASK_DEFINITION: MY_ECS_TASK_DEFINITION # set this to the path to your Amazon ECS task definition
+                                               # file, e.g. .aws/task-definition.json
+  CONTAINER_NAME: MY_CONTAINER_NAME  
 
 jobs:
   build:
@@ -41,11 +47,15 @@ jobs:
     - name: Build with Maven
       run: mvn -B package --file pom.xml -D SkipTests
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
-
-      
-    - name: Build Docker image
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: 1
       run: |
-        docker build -t ${{ secrets.ECR_REPOSITORY_NAME }}:1 .
-
+        # Build a docker container and
+        # push it to ECR so that it can
+        # be deployed to ECS.
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
