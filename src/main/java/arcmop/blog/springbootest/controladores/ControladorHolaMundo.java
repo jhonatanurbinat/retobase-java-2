@@ -12,7 +12,7 @@ public class ControladorHolaMundo {
     @RequestMapping(value = "/sumar/{sum01}/{sum02}", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
     public @ResponseBody
     Map saludar(@PathVariable("sum01") Integer sum01, @PathVariable("sum02") Integer sum02) {
-        return Collections.singletonMap("resultado", String.valueOf(sum01 * sum02));
+        return Collections.singletonMap("resultado", String.valueOf(sum01 + sum02));
     }
 
 
@@ -26,6 +26,12 @@ public class ControladorHolaMundo {
     @RequestMapping(value = "/health", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
     public @ResponseBody Map health() {
         return Collections.singletonMap("status", "UP");
+    }
+
+        // Simple health check endpoint that always returns 200 OK
+    @RequestMapping(value = "/saludar", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
+    public @ResponseBody Map greetings() {
+        return Collections.singletonMap("status", "Saludar");
     }
 
 }
