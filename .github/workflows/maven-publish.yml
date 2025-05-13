@@ -13,7 +13,7 @@ env:
   ECS_CLUSTER: my-cluster                 # set this to your Amazon ECS cluster name
   ECS_TASK_DEFINITION: MY_ECS_TASK_DEFINITION # set this to the path to your Amazon ECS task definition
                                                # file, e.g. .aws/task-definition.json
-  CONTAINER_NAME: MY_CONTAINER_NAME  
+  CONTAINER_NAME: web  
 
 jobs:
   build:
