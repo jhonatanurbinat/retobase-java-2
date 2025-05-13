@@ -15,9 +15,10 @@ public class ControladorHolaMundo {
         return Collections.singletonMap("resultado", String.valueOf(sum01 + sum02));
     }
 
+
     @RequestMapping(value = "/restar/{sum01}/{sum02}", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
     public @ResponseBody
-    Map saludar2(@PathVariable("sum01") Integer sum01, @PathVariable("sum02") Integer sum02) {
+    Map restar(@PathVariable("sum01") Integer sum01, @PathVariable("sum02") Integer sum02) {
         return Collections.singletonMap("resultado", String.valueOf(sum01 - sum02));
     }
 
