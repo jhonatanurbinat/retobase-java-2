@@ -19,6 +19,12 @@ https://github.com/jhonatanurbinat/retobase-java-2/tree/master/infraestructura/t
 - se crea el ecs service y se auna al load balancer
 - se crea gurpos de seguridad con reglas de entrada amplios para el service de ECS por motivos de debug
 
+- Actualizar el archivo infraestructura/terraform/terraform.tfvars con sus aws_access_key_id     y aws_secret_access_key  en mi cuenta use un usuario con AdministratorAccess
+
+- ![image](https://github.com/user-attachments/assets/6713b4a9-64ed-402d-998e-efbac67edca7)
+
+- -  terraform init , terraform plan , terraform apply  y al finalizar terraform destroy
+
 2.  Codigo SRC
 
 https://github.com/jhonatanurbinat/retobase-java-2/blob/master/src/main/java/arcmop/blog/springbootest/controladores/ControladorHolaMundo.java
