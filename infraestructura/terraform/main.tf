@@ -202,7 +202,7 @@ resource "aws_security_group" "ecs" {
 
 resource "aws_vpc_security_group_ingress_rule" "allow_tls_ipv4" {
   security_group_id = aws_security_group.ecs.id
-  cidr_ipv4         = ["0.0.0.0/0"]
+  cidr_ipv4         = "0.0.0.0/0"
   from_port         = 30
   ip_protocol       = "tcp"
   to_port           = 5000
@@ -221,9 +221,9 @@ resource "aws_security_group" "load_balancer" {
 
 resource "aws_vpc_security_group_ingress_rule" "allow_tls_ipv4_2" {
   security_group_id = aws_security_group.load_balancer.id
-  cidr_ipv4         = ["0.0.0.0/0"]
+  cidr_ipv4         = "0.0.0.0/0"
   from_port         = 0
-  protocol    = "-1"  # Allow all traffic
+  ip_protocol    = "-1"  # Allow all traffic
   to_port           = 0
 }
 
