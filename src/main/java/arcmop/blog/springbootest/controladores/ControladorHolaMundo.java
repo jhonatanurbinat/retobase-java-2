@@ -22,13 +22,14 @@ public class ControladorHolaMundo {
         return Collections.singletonMap("resultado", String.valueOf(sum01 - sum02));
     }
 
-    // Simple health check endpoint that always returns 200 OK
-    @RequestMapping(value = "/health", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
-    public @ResponseBody Map health() {
-        return Collections.singletonMap("status", "UP");
+
+    @RequestMapping(value = "/healthz", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, String>> health() {
+        Map<String, String> response = Collections.singletonMap("status", "UP");
+        return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
-        // Simple health check endpoint that always returns 200 OK
+    // Simple health check endpoint that always returns 200 OK
     @RequestMapping(value = "/saludar", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
     public @ResponseBody Map greetings() {
         return Collections.singletonMap("status", "Saludar");
