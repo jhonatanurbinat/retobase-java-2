@@ -14,6 +14,12 @@ variable "aws_region" {
   default     = "us-east-1"  # Set a default region
 }
 
+variable "stack_name" {
+  type        = string      
+  description = "The name of the stack"
+  default     = "ecs-stack"
+}
+
 variable "vpc_cidr" {
   default = "10.0.0.0/16"
 }
@@ -43,11 +49,11 @@ variable "ami_id" {
 }
 
 variable "ecs_task_cpu" {
-  default = "256"
+  default = 256
 }
 
 variable "ecs_task_memory" {
-  default = "512"
+  default = 512
 }
 
 variable "ecs_cluster_name" {
@@ -57,3 +63,10 @@ variable "ecs_cluster_name" {
 variable "repository_name" {
   default = "test-repository"
 }
+
+
+variable "image_id" {
+  description = "The name of the stack"
+  default     = "ami-05712a2b73d4ebafb"
+}
+

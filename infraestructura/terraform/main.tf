@@ -46,11 +46,7 @@ resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
 }
 
-# Attach Gateway to VPC
-resource "aws_vpc_gateway_attachment" "main" {
-  vpc_id              = aws_vpc.main.id
-  internet_gateway_id = aws_internet_gateway.main.id
-}
+
 
 # Create Route Table
 resource "aws_route_table" "main" {
@@ -64,7 +60,7 @@ resource "aws_route" "public_route_via_igw" {
   gateway_id             = aws_internet_gateway.main.id
 
   depends_on = [
-    aws_vpc_gateway_attachment.main
+    aws_internet_gateway.main
   ]
 }
 
@@ -128,15 +124,25 @@ resource "aws_iam_role" "ec2_ssm_role" {
 
 resource "aws_iam_role_policy_attachment" "ec2_ssm_policy" {
   role       = aws_iam_role.ec2_ssm_role.name
-  policy_arn = [
-    "arn:aws:iam::aws:policy/AmazonSSMManagedEC2InstanceDefaultPolicy",
-    "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role",
-    "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
-    "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
-  ]
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedEC2InstanceDefaultPolicy"
 
 }
 
+
+resource "aws_iam_role_policy_attachment" "ec2_service_role_policy_attachment" {
+  role       = aws_iam_role.ec2_ssm_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
+}
+
+resource "aws_iam_role_policy_attachment" "ec2_ssm_core_policy_attachment" {
+  role       = aws_iam_role.ec2_ssm_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_role_policy_attachment" "ec2_cloudwatch_logs_policy_attachment" {
+  role       = aws_iam_role.ec2_ssm_role.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
+}
 
 
 
@@ -157,11 +163,14 @@ resource "aws_iam_role" "ecs_execution_role" {
 
 resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
   role       = aws_iam_role.ecs_execution_role.name
-  policy_arn = [
-    "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
-    "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
-  ]
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
+
+resource "aws_iam_role_policy_attachment" "ecs_execution_policy_2" {
+  role       = aws_iam_role.ecs_execution_role.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
+}
+
 
 resource "aws_iam_role" "ecs_task_role" {
   name = "ecs_task_role"
@@ -214,32 +223,6 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_role_policy_attachment"
 # ECR Repository
 resource "aws_ecr_repository" "main" {
   name = var.repository_name
-
-  repository_policy_text = jsonencode({
-  Version = "2012-10-17"
-  Statement = [
-    {
-      Sid       = "AllowPushPull"
-      Effect    = "Allow"
-      Principal = {
-        AWS = [
-          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/terraform"
-        ]
-      }
-      Action = [
-        "ecr:GetDownloadUrlForLayer",
-        "ecr:BatchGetImage",
-        "ecr:BatchCheckLayerAvailability",
-        "ecr:PutImage",
-        "ecr:InitiateLayerUpload",
-        "ecr:UploadLayerPart",
-        "ecr:CompleteLayerUpload",
-        "ecr:*"
-      ]
-      Resource = "*"
-    }
-  ]
-})
 }
 
 data "aws_caller_identity" "current" {}
@@ -264,14 +247,16 @@ resource "aws_launch_template" "ecs_instance_template" {
     image_id      = var.image_id  # Replace with the appropriate AMI ID
     instance_type = var.instance_type
 
-    security_group_ids = [aws_security_group.ecs.id]
+    vpc_security_group_ids  = [aws_security_group.ecs.id]
 
-    user_data = base64encode(<<-EOT
-      #!/bin/bash -xe
-      echo ECS_CLUSTER=${aws_ecs_cluster.main.name} >> /etc/ecs/ecs.config
-      yum install -y aws-cfn-bootstrap
-      /opt/aws/bin/cfn-init -v --stack ${var.stack_id} --resource EcsInstanceLc --configsets full_install --region ${var.aws_region} &
-    EOT)
+
+  user_data = base64encode(<<-EOT
+    #!/bin/bash -xe
+    echo ECS_CLUSTER=${aws_ecs_cluster.main.name} >> /etc/ecs/ecs.config
+    yum install -y aws-cfn-bootstrap &
+  EOT
+  )
+
 
     metadata_options {
       http_endpoint = "enabled"
@@ -286,14 +271,11 @@ resource "aws_autoscaling_group" "ecs_instance_asg" {
   ]
 
   launch_template {
-    launch_template_name = aws_launch_template.ecs_instance_template.name
-    version             = aws_launch_template.ecs_instance_template.latest_version
+    id = aws_launch_template.ecs_instance_template.id
+    version = "$Latest"
   }
 
-  availability_zones = [
-    "${var.aws_region}a",
-    "${var.aws_region}b"
-  ]
+
 
   min_size           = 1
   max_size           = 2
@@ -303,18 +285,7 @@ resource "aws_autoscaling_group" "ecs_instance_asg" {
     aws_subnet.public_az2.id
   ]
 
-  tags = [
-    {
-      key                 = "Name"
-      value               = "ECS Instance stack"
-      propagate_at_launch = true
-    },
-    {
-      key                 = "Description"
-      value               = "This instance is the part of the Auto Scaling group which was created through ECS Console"
-      propagate_at_launch = true
-    }
-  ]
+
 }
 
 
@@ -336,9 +307,9 @@ resource "aws_ecs_task_definition" "main" {
     cpu       = var.ecs_task_cpu
     memory    = var.ecs_task_memory
     image     = "jhonatanurbinat/reto:latest"
-    port_mappings = [{
-      container_port = 80
-      host_port     = 80
+    portMappings  = [{
+      containerPort = 80
+      hostPort     = 80
       protocol      = "tcp"
     }]
     log_configuration = {
@@ -380,13 +351,13 @@ resource "aws_lb_target_group" "main" {
     healthy_threshold   = 3
     unhealthy_threshold = 3
     port                = 80
+    matcher = "200,201,204,301,302,304,400,401,403,404,405,408"
   }
 
   target_type = "ip"
 
-  matcher {
-    http_code = "200,201,204,301,302,304,400,401,403,404,405,408"
-  }
+  
+  
 
 }
 
@@ -413,15 +384,13 @@ resource "aws_lb_listener_rule" "main" {
 
   action {
     type             = "forward"
-    target_group {
-      arn    = aws_lb_target_group.main.arn
-      weight = 100
-    }
+    target_group_arn = aws_lb_target_group.main.arn
   }
 
   condition {
-    field  = "path-pattern"
-    values = ["/*"]
+    path_pattern {
+      values = ["/*"]
+    }
   }
 }
 
@@ -446,10 +415,8 @@ resource "aws_ecs_service" "main" {
   desired_count   = 1
   
   network_configuration {
-    awsvpc_configuration {
       security_groups = [aws_security_group.service.id]
       subnets         = [aws_subnet.private_az1.id, aws_subnet.private_az2.id]
-    }
   }
 
   load_balancer {
@@ -475,7 +442,6 @@ resource "aws_security_group_rule" "service_ingress_from_load_balancer" {
   from_port   = 0
   to_port     = 0
   protocol    = "-1"  # -1 means all protocols
-  cidr_blocks = []
   security_group_id = aws_security_group.service.id
   source_security_group_id = aws_security_group.load_balancer.id
 }
