@@ -244,18 +244,24 @@ resource "aws_launch_template" "ecs_instance_template" {
       arn = aws_iam_instance_profile.main.arn
     }
 
-    image_id      = var.image_id  # Replace with the appropriate AMI ID
+
+
+    image_id      = var.ami_id  # Replace with the appropriate AMI ID
     instance_type = var.instance_type
+
+      block_device_mappings {
+    device_name = "/dev/xvda"
+    ebs {
+      volume_size = 30
+      volume_type = "gp2"
+    }
+  }
+
 
     vpc_security_group_ids  = [aws_security_group.ecs.id]
 
 
-  user_data = base64encode(<<-EOT
-    #!/bin/bash -xe
-    echo ECS_CLUSTER=${aws_ecs_cluster.main.name} >> /etc/ecs/ecs.config
-    yum install -y aws-cfn-bootstrap &
-  EOT
-  )
+    user_data = filebase64("${path.module}/ecs.sh")
 
 
     metadata_options {
@@ -284,6 +290,12 @@ resource "aws_autoscaling_group" "ecs_instance_asg" {
     aws_subnet.public_az1.id,
     aws_subnet.public_az2.id
   ]
+
+  tag {
+    key                 = "AmazonECSManaged"
+    value               = true
+    propagate_at_launch = true
+  }
 
 
 }
@@ -341,6 +353,7 @@ resource "aws_lb_target_group" "main" {
   name     = "my-target-group"
   port     = 80
   protocol = "HTTP"
+  target_type = "ip"
   vpc_id   = aws_vpc.main.id
 
   health_check {
@@ -354,7 +367,7 @@ resource "aws_lb_target_group" "main" {
     matcher = "200,201,204,301,302,304,400,401,403,404,405,408"
   }
 
-  target_type = "ip"
+  
 
   
   
@@ -367,15 +380,11 @@ resource "aws_lb_listener" "main" {
   port              = 80
   protocol          = "HTTP"
 
-  default_action {
-    type             = "forward"
-    forward {
-      target_group {
-        arn    = aws_lb_target_group.main.arn
-        weight = 100
-      }
+    default_action {
+      type             = "forward"
+      target_group_arn = aws_lb_target_group.main.arn
     }
-  }
+
 }
 
 resource "aws_lb_listener_rule" "main" {
@@ -418,6 +427,8 @@ resource "aws_ecs_service" "main" {
       security_groups = [aws_security_group.service.id]
       subnets         = [aws_subnet.private_az1.id, aws_subnet.private_az2.id]
   }
+
+  force_new_deployment = true
 
   load_balancer {
     target_group_arn = aws_lb_target_group.main.arn
