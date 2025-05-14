@@ -49,7 +49,7 @@ https://github.com/jhonatanurbinat/retobase-java-2/blob/master/src/main/java/arc
 ECR privado con la imagen pusheada despues de actualizar el codigo y correo el workflow github actgions manual
 ![image](https://github.com/user-attachments/assets/a362806a-c571-47f7-b501-c613871450de)
 
- ECS atualizado con la imagen del ECR privado
+ ECS atualizado con la imagen del ECR privado despues de correr el pipeline
   ![image](https://github.com/user-attachments/assets/c80e1a39-4f50-4829-b834-428956f9766b)
 
 
