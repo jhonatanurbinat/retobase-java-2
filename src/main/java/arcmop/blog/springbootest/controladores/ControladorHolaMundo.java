@@ -38,4 +38,10 @@ public class ControladorHolaMundo {
         return Collections.singletonMap("status", "Saludar");
     }
 
+    // Simple health check endpoint that always returns 200 OK
+    @RequestMapping(value = "/despedir", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
+    public @ResponseBody Map despedir() {
+        return Collections.singletonMap("status", "Despedir");
+    }
+
 }
