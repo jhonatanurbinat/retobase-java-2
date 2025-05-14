@@ -12,100 +12,6 @@ resource "aws_vpc" "main" {
   enable_dns_hostnames = true
 }
 
-# Create Subnets
-resource "aws_subnet" "public_az1" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = var.subnet_public_az1
-  availability_zone       = "${var.aws_region}a"
-  map_public_ip_on_launch = true
-}
-
-resource "aws_subnet" "public_az2" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = var.subnet_public_az2
-  availability_zone       = "${var.aws_region}b"
-  map_public_ip_on_launch = true
-}
-
-resource "aws_subnet" "private_az1" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = var.subnet_private_az1
-  availability_zone       = "${var.aws_region}a"
-  map_public_ip_on_launch = false
-}
-
-resource "aws_subnet" "private_az2" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = var.subnet_private_az2
-  availability_zone       = "${var.aws_region}b"
-  map_public_ip_on_launch = false
-}
-
-# Internet Gateway
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
-}
-
-
-
-# Create Route Table
-resource "aws_route_table" "main" {
-  vpc_id = aws_vpc.main.id
-}
-
-# Create Route for Internet Gateway
-resource "aws_route" "public_route_via_igw" {
-  route_table_id         = aws_route_table.main.id
-  destination_cidr_block = "0.0.0.0/0"
-  gateway_id             = aws_internet_gateway.main.id
-
-  depends_on = [
-    aws_internet_gateway.main
-  ]
-}
-
-# Associate Public Subnets with the Route Table
-resource "aws_route_table_association" "pub_subnet_az1" {
-  subnet_id      = aws_subnet.public_az1.id
-  route_table_id = aws_route_table.main.id
-}
-
-resource "aws_route_table_association" "pub_subnet_az2" {
-  subnet_id      = aws_subnet.public_az2.id
-  route_table_id = aws_route_table.main.id
-}
-
-
-
-
-# Security Group for ECS and Load Balancer
-resource "aws_security_group" "ecs" {
-  vpc_id = aws_vpc.main.id
-
-  ingress {
-    from_port   = 30
-    to_port     = 5000
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-resource "aws_security_group" "load_balancer" {
-  vpc_id = aws_vpc.main.id
-
-  ingress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"  # Allow all traffic
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-# ECS Cluster
-resource "aws_ecs_cluster" "main" {
-  name = var.ecs_cluster_name
-}
-
 # IAM Roles and Policies
 resource "aws_iam_role" "ec2_ssm_role" {
   name = "ec2_ssm_role"
@@ -118,7 +24,8 @@ resource "aws_iam_role" "ec2_ssm_role" {
       Principal = {
         Service = "ec2.amazonaws.com"
       }
-    }]
+    },
+  ]
   })
 }
 
@@ -127,7 +34,6 @@ resource "aws_iam_role_policy_attachment" "ec2_ssm_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedEC2InstanceDefaultPolicy"
 
 }
-
 
 resource "aws_iam_role_policy_attachment" "ec2_service_role_policy_attachment" {
   role       = aws_iam_role.ec2_ssm_role.name
@@ -143,8 +49,6 @@ resource "aws_iam_role_policy_attachment" "ec2_cloudwatch_logs_policy_attachment
   role       = aws_iam_role.ec2_ssm_role.name
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
 }
-
-
 
 resource "aws_iam_role" "ecs_execution_role" {
   name = "ecs_execution_role"
@@ -218,6 +122,116 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_role_policy_attachment"
   policy_arn = aws_iam_policy.ecs_execution_role_policy.arn
 }
 
+# EC2 Instance Profile
+resource "aws_iam_instance_profile" "main" {
+  name = "EC2InstanceProfile"
+  role = aws_iam_role.ec2_ssm_role.name
+}
+
+
+# Create Subnets
+resource "aws_subnet" "public_az1" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.subnet_public_az1
+  availability_zone       = "${var.aws_region}a"
+  map_public_ip_on_launch = true
+}
+
+resource "aws_subnet" "public_az2" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.subnet_public_az2
+  availability_zone       = "${var.aws_region}b"
+  map_public_ip_on_launch = true
+}
+
+resource "aws_subnet" "private_az1" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.subnet_private_az1
+  availability_zone       = "${var.aws_region}a"
+  map_public_ip_on_launch = false
+}
+
+resource "aws_subnet" "private_az2" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.subnet_private_az2
+  availability_zone       = "${var.aws_region}b"
+  map_public_ip_on_launch = false
+}
+
+# Internet Gateway
+resource "aws_internet_gateway" "main" {
+  vpc_id = aws_vpc.main.id
+}
+
+
+# Create Route Table
+resource "aws_route_table" "main" {
+  vpc_id = aws_vpc.main.id
+}
+
+# Create Route for Internet Gateway
+resource "aws_route" "public_route_via_igw" {
+  route_table_id         = aws_route_table.main.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.main.id
+
+  depends_on = [
+    aws_internet_gateway.main
+  ]
+}
+
+# Associate Public Subnets with the Route Table
+resource "aws_route_table_association" "pub_subnet_az1" {
+  subnet_id      = aws_subnet.public_az1.id
+  route_table_id = aws_route_table.main.id
+}
+
+resource "aws_route_table_association" "pub_subnet_az2" {
+  subnet_id      = aws_subnet.public_az2.id
+  route_table_id = aws_route_table.main.id
+}
+
+
+
+
+# Security Group for ECS and Load Balancer
+resource "aws_security_group" "ecs" {
+  vpc_id = aws_vpc.main.id
+
+}
+
+resource "aws_vpc_security_group_ingress_rule" "allow_tls_ipv4" {
+  security_group_id = aws_security_group.ecs.id
+  cidr_ipv4         = ["0.0.0.0/0"]
+  from_port         = 30
+  ip_protocol       = "tcp"
+  to_port           = 5000
+}
+
+resource "aws_vpc_security_group_egress_rule" "allow_all_traffic_ipv4" {
+  security_group_id = aws_security_group.ecs.id
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "-1" # semantically equivalent to all ports
+}
+
+resource "aws_security_group" "load_balancer" {
+  vpc_id = aws_vpc.main.id
+
+}
+
+resource "aws_vpc_security_group_ingress_rule" "allow_tls_ipv4_2" {
+  security_group_id = aws_security_group.load_balancer.id
+  cidr_ipv4         = ["0.0.0.0/0"]
+  from_port         = 0
+  protocol    = "-1"  # Allow all traffic
+  to_port           = 0
+}
+
+resource "aws_vpc_security_group_egress_rule" "allow_all_traffic_ipv4_2" {
+  security_group_id = aws_security_group.load_balancer.id
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "-1" # semantically equivalent to all ports
+}
 
 
 # ECR Repository
@@ -225,13 +239,11 @@ resource "aws_ecr_repository" "main" {
   name = var.repository_name
 }
 
-data "aws_caller_identity" "current" {}
 
 
-# EC2 Instance Profile
-resource "aws_iam_instance_profile" "main" {
-  name = "EC2InstanceProfile"
-  role = aws_iam_role.ec2_ssm_role.name
+# ECS Cluster
+resource "aws_ecs_cluster" "main" {
+  name = var.ecs_cluster_name
 }
 
 
@@ -249,25 +261,27 @@ resource "aws_launch_template" "ecs_instance_template" {
     image_id      = var.ami_id  # Replace with the appropriate AMI ID
     instance_type = var.instance_type
 
-      block_device_mappings {
+    block_device_mappings {
     device_name = "/dev/xvda"
-    ebs {
-      volume_size = 30
-      volume_type = "gp2"
-    }
+      ebs {
+        volume_size = 30
+        volume_type = "gp2"
+      }
   }
 
 
     vpc_security_group_ids  = [aws_security_group.ecs.id]
 
 
-    user_data = filebase64("${path.module}/ecs.sh")
+    user_data = filebase64("ecs.sh")
 
 
     metadata_options {
       http_endpoint = "enabled"
     }
 }
+
+data "aws_caller_identity" "current" {}
 
 # Auto Scaling Group
 resource "aws_autoscaling_group" "ecs_instance_asg" {
@@ -301,6 +315,75 @@ resource "aws_autoscaling_group" "ecs_instance_asg" {
 }
 
 
+# Load Balancer
+resource "aws_lb" "main" {
+  name               = "my-load-balancer"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.load_balancer.id]
+  subnets            = [aws_subnet.public_az1.id, aws_subnet.public_az2.id]
+
+  tags = {
+    Name = aws_ecs_cluster.main.name
+  }
+}
+
+
+# Target Group
+resource "aws_lb_target_group" "main" {
+  name     = "my-target-group"
+  port     = 80
+  protocol = "HTTP"
+  target_type = "ip"
+  vpc_id   = aws_vpc.main.id
+
+  health_check {
+    path                = "/healthz"
+    protocol            = "HTTP"
+    interval            = 10
+    timeout             = 9
+    healthy_threshold   = 3
+    unhealthy_threshold = 3
+    port                = 80
+    matcher = "200,201,204,301,302,304,400,401,403,404,405,408"
+  }
+
+}
+
+# Listener for Load Balancer
+resource "aws_lb_listener" "main" {
+  load_balancer_arn = aws_lb.main.arn
+  port              = 80
+  protocol          = "HTTP"
+
+    default_action {
+      type             = "forward"
+      target_group_arn = aws_lb_target_group.main.arn
+    }
+
+}
+
+
+resource "aws_lb_listener_rule" "main" {
+  listener_arn = aws_lb_listener.main.arn
+  priority     = 1
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.main.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/*"]
+    }
+  }
+}
+
+resource "aws_cloudwatch_log_group" "ecs_web_log_group" {
+  name              = "/ecs/web"
+  retention_in_days = 7
+}
 
 
 
@@ -333,79 +416,6 @@ resource "aws_ecs_task_definition" "main" {
       }
     }
   }])
-}
-
-# Load Balancer
-resource "aws_lb" "main" {
-  name               = "my-load-balancer"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.load_balancer.id]
-  subnets            = [aws_subnet.public_az1.id, aws_subnet.public_az2.id]
-
-  tags = {
-    Name = aws_ecs_cluster.main.name
-  }
-}
-
-# Target Group
-resource "aws_lb_target_group" "main" {
-  name     = "my-target-group"
-  port     = 80
-  protocol = "HTTP"
-  target_type = "ip"
-  vpc_id   = aws_vpc.main.id
-
-  health_check {
-    path                = "/healthz"
-    protocol            = "HTTP"
-    interval            = 10
-    timeout             = 9
-    healthy_threshold   = 3
-    unhealthy_threshold = 3
-    port                = 80
-    matcher = "200,201,204,301,302,304,400,401,403,404,405,408"
-  }
-
-  
-
-  
-  
-
-}
-
-# Listener for Load Balancer
-resource "aws_lb_listener" "main" {
-  load_balancer_arn = aws_lb.main.arn
-  port              = 80
-  protocol          = "HTTP"
-
-    default_action {
-      type             = "forward"
-      target_group_arn = aws_lb_target_group.main.arn
-    }
-
-}
-
-resource "aws_lb_listener_rule" "main" {
-  listener_arn = aws_lb_listener.main.arn
-  priority     = 1
-
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.main.arn
-  }
-
-  condition {
-    path_pattern {
-      values = ["/*"]
-    }
-  }
-}
-
-resource "aws_cloudwatch_log_group" "ecs_web_log_group" {
-  name              = "/ecs/web"
-  retention_in_days = 7
 }
 
 
