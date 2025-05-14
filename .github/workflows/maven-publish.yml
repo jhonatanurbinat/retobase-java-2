@@ -78,7 +78,7 @@ jobs:
         task-definition: ${{ steps.task-def.outputs.task-definition }}
         service: ${{ env.ECS_SERVICE }}
         cluster: ${{ env.ECS_CLUSTER }}
-        wait-for-service-stability: true
+        # wait-for-service-stability: true
         # Optional: You can set the deployment configuration for rolling updates
         deployment-configuration: |
           {
