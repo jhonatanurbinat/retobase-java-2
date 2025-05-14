@@ -1,0 +1,430 @@
+ Resources:
+  Vpc:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 0e3933ae-23c2-44e1-a0d9-82fcfba93511
+  EC2SSMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: "ec2_ssm_role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: "sts:AssumeRole"
+            Effect: "Allow"
+            Principal:
+              Service: "ec2.amazonaws.com"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonSSMManagedEC2InstanceDefaultPolicy"  # Attach the managed policy here
+        - "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
+        - "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+        - "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
+  #SSMPolicyAttachment:
+   # Type: 'AWS::IAM::RolePolicyAttachment'
+   # Properties:
+      #ManagedPolicyName: "AmazonSSMManagedEC2InstanceDefaultPolicy"
+     # PolicyArn: "arn:aws:iam::aws:policy/AmazonSSMManagedEC2InstanceDefaultPolicy"
+    #  Roles:
+      #  - Ref: EC2SSMRole
+  ECSEnExecutionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: "ecs_execution_role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: "sts:AssumeRole"
+            Effect: "Allow"
+            Principal:
+              Service: "ecs-tasks.amazonaws.com"
+  
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"  
+        - "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
+#                                               AmazonEC2ContainerServiceRole AmazonECSTaskExecutionRolePolicy
+
+  ECSTaskRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: "ecs_task_role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: "sts:AssumeRole"
+            Effect: "Allow"
+            Principal:
+              Service: "ecs-tasks.amazonaws.com"
+  ECSEnExecutionRoleECSPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: "ECSEnExecutionRole_ecs_policy"
+      Roles:
+        - Ref: ECSTaskRole
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+              - "ec2:*"
+              - "ecs:*"
+              - "ecr:*"
+              - "autoscaling:*"
+              - "elasticloadbalancing:*"
+              - "application-autoscaling:*"
+              - "logs:*"
+              - "tag:*"
+              - "resource-groups:*"
+              - "logs:*"
+            Effect: "Allow"
+            Resource: "*"
+  EC2InstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      InstanceProfileName: "EC2InstanceProfile"
+      Roles:
+        - Ref: EC2SSMRole
+  PubSubnetAz1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: 'us-east-1a'
+      MapPublicIpOnLaunch: true
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 6c7ca021-4114-4ec8-acf8-4f103ff7011f
+  PubSubnetAz2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: 'us-east-1b'
+      MapPublicIpOnLaunch: true
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: cfe07e5c-e00f-4918-b877-f567fa08c802
+  PrivSubnetAz1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: 'us-east-1a'
+      MapPublicIpOnLaunch: true
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 6c7ca021-4114-4ec8-acf8-4f103ff7011f
+  PrivSubnetAz2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.0.4.0/24
+      AvailabilityZone: 'us-east-1b'
+      MapPublicIpOnLaunch: true
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 6c7ca021-4114-4ec8-acf8-4f103ff7011f
+  InternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 46bddd21-3027-4ccb-9e5d-ebf887429453
+  AttachGateway:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 11b7e802-d5ba-437a-8695-4bd5406d4db7
+  RouteViaIgw:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref Vpc
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 1a2f2b53-09d3-4c2c-8286-295870b8c602
+  PublicRouteViaIgw:
+    Type: 'AWS::EC2::Route'
+    DependsOn:
+      - AttachGateway
+    Properties:
+      RouteTableId: !Ref RouteViaIgw
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 4b7c941a-8498-4e70-886b-9339018cc18a
+  PubSubnet1RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PubSubnetAz1
+      RouteTableId: !Ref RouteViaIgw
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: cea0d60a-6d91-4922-90ea-f6db9f4378a9
+
+
+  PubSubnet2RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PubSubnetAz2
+      RouteTableId: !Ref RouteViaIgw
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: c3b3c8e1-a9c8-47c6-8d26-b6f272bcd9e1
+
+  EcsSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: !Ref Vpc
+      GroupDescription: ECS Allowed Ports
+      SecurityGroupIngress:
+        IpProtocol: tcp
+        FromPort: 30
+        ToPort: 5000 #150
+        CidrIp: 0.0.0.0/0
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 493fdb30-54ce-4e4e-9cd6-c9faa6e3f93b
+
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref Vpc
+      GroupDescription: Access to the load balancer that sits in front of ECS
+      SecurityGroupIngress:
+        # Allow access from anywhere to our ECS services
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: -1
+
+  MyRepository: 
+    Type: AWS::ECR::Repository
+    Properties: 
+      RepositoryName: "test-repository"
+      RepositoryPolicyText: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Sid: AllowPushPull
+            Effect: Allow
+            Principal: 
+              AWS: 
+                - !Sub arn:aws:iam::${AWS::AccountId}:user/terraform 
+            Action: 
+              - "ecr:GetDownloadUrlForLayer"
+              - "ecr:BatchGetImage"
+              - "ecr:BatchCheckLayerAvailability"
+              - "ecr:PutImage"
+              - "ecr:InitiateLayerUpload"
+              - "ecr:UploadLayerPart"
+              - "ecr:CompleteLayerUpload"
+              - "ecr:*"
+  
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: 'my-cluster'
+
+  EcsInstanceLc:
+    # DependsOn
+#    Type: 'AWS::AutoScaling::LaunchConfiguration'
+    Type: 'AWS::EC2::LaunchTemplate'
+    Properties:
+      LaunchTemplateName: !Sub ${AWS::StackName}-launch-template
+      LaunchTemplateData:
+        IamInstanceProfile:
+          Arn: !GetAtt
+            - EC2InstanceProfile
+            - Arn
+        ImageId: 'ami-05712a2b73d4ebafb'
+        InstanceType: 't2.medium'
+      # AssociatePublicIpAddress: false
+        SecurityGroupIds:
+          - !GetAtt EcsSecurityGroup.GroupId
+        UserData:
+          Fn::Base64: !Sub |
+           #!/bin/bash -xe
+            echo ECS_CLUSTER=${ECSCluster} >> /etc/ecs/ecs.config
+            yum install -y aws-cfn-bootstrap
+            /opt/aws/bin/cfn-init -v --stack ${AWS::StackId} --resource EcsInstanceLc --configsets full_install --region ${AWS::Region} &
+         # Disable IMDSv1, and require IMDSv2
+        MetadataOptions:
+          HttpEndpoint: enabled
+        #IamInstanceProfile:
+          #Name: "test_profile"  # Replace with your IAM instance profile name
+        #SecurityGroups:
+          #- !Ref EcsSecurityGroup
+
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 0e8e3b5a-7b14-4ffc-92af-ef9be7e51689
+
+  EcsInstanceAsg:
+    DependsOn:
+      - ECSCluster
+      - EcsInstanceLc  # Added new dependency
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    Properties:
+      LaunchTemplate:
+        #LaunchTemplateName: !Ref EcsInstanceLc
+        LaunchTemplateId: !Ref EcsInstanceLc
+        #VersionDescription: "1"
+        Version: !GetAtt EcsInstanceLc.LatestVersionNumber
+      #LaunchTemplateName: !Ref EcsInstanceLc
+      AvailabilityZones:
+        - us-east-1a
+        - us-east-1b
+      MinSize: '1'
+      MaxSize: '2'
+      DesiredCapacity: '1'
+      VPCZoneIdentifier: 
+        - !Ref PubSubnetAz1
+        - !Ref PubSubnetAz2
+      Tags:
+        - Key: Name
+          Value: !Sub 'ECS Instance stack'
+          PropagateAtLaunch: 'true'
+        - Key: Description
+          Value: >-
+            This instance is the part of the Auto Scaling group which was
+            created through ECS Console
+          PropagateAtLaunch: 'true'
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 80731e0b-a9e5-461c-9049-e215aed2ad3d
+## part
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: 'my-load-balancer'
+      Subnets:
+        - !Ref PubSubnetAz1
+        - !Ref PubSubnetAz2
+      SecurityGroups: 
+        - !Ref LoadBalancerSecurityGroup  
+      Tags:
+        - Key: Name
+          Value: !Ref ECSCluster
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref Vpc
+      Port: 80
+      Protocol: HTTP
+      #HealthCheckEnabled: false
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPort: 80
+      HealthCheckPath: /healthz
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 9
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 3 
+      TargetType: ip
+      Matcher:
+        #HttpCode: '200
+        HttpCode: '200,201,204,301,302,304,400,401,403,404,405,408'
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          ForwardConfig:
+            TargetGroups:
+              - TargetGroupArn: !Ref TargetGroup
+                Weight: 100
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: '80'
+      Protocol: HTTP
+
+  ListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+       - Type: forward
+         TargetGroupArn: !Ref TargetGroup
+      Priority: 1
+      Conditions:
+      - Field: path-pattern
+        Values: 
+          - "/*"
+      ListenerArn: !Ref Listener
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/web
+      RetentionInDays: 7  # Optional: keep logs for 7 days
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: 'web'
+      Cpu: '256'
+      Memory: '512'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - EC2
+      ExecutionRoleArn: !Ref ECSEnExecutionRole
+      #TaskRoleArn: !Ref ECSTaskRole
+      ContainerDefinitions:
+        - Name: 'web'
+          Cpu: '256'
+          Memory: '512'
+          Image: 'jhonatanurbinat/reto:latest'
+          PortMappings:
+            - HostPort: '80'
+              ContainerPort: '80'
+              Protocol: 'tcp'
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              mode: non-blocking
+              max-buffer-size: 25m
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: nginx
+
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn: 
+      - Listener       # Line Added
+      - PrivSubnetAz1
+      - PrivSubnetAz2
+    Properties:
+      ServiceName: 'web'
+      Cluster: !Ref ECSCluster
+      DesiredCount: '1'
+      TaskDefinition: !Ref TaskDefinition
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          SecurityGroups:
+            - !Ref ServiceSecurityGroup
+          Subnets: 
+            - !Ref PrivSubnetAz1
+            - !Ref PrivSubnetAz2
+      LoadBalancers:
+        - TargetGroupArn: !Ref TargetGroup
+          ContainerPort: 80
+          ContainerName: "web"
+      HealthCheckGracePeriodSeconds: "30"
+
+  ServiceSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security group for service
+      VpcId: !Ref Vpc
+
+  ServiceIngressfromLoadBalancer:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      Description: Ingress from the public ALB
+      GroupId: !Ref ServiceSecurityGroup
+      IpProtocol: -1
+      SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
