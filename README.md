@@ -46,7 +46,7 @@ https://github.com/jhonatanurbinat/retobase-java-2/blob/master/src/main/java/arc
  DNS LoadBalancer publico
   ![image](https://github.com/user-attachments/assets/185b26da-6b21-40e9-a3cd-23def602e891)
 
-
+ECR privado con la imagen pusheada despues de actualizar el codigo y correo el workflow github actgions manual
 ![image](https://github.com/user-attachments/assets/a362806a-c571-47f7-b501-c613871450de)
 
  ECS atualizado con la imagen del ECR privado
