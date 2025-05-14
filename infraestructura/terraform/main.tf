@@ -98,8 +98,10 @@ resource "aws_security_group" "load_balancer" {
   vpc_id = aws_vpc.main.id
 
   ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"  # Allow all traffic
     cidr_blocks = ["0.0.0.0/0"]
-    protocol    = "-1"
   }
 }
 
@@ -128,7 +130,7 @@ resource "aws_iam_role_policy_attachment" "ec2_ssm_policy" {
   role       = aws_iam_role.ec2_ssm_role.name
   policy_arn = [
     "arn:aws:iam::aws:policy/AmazonSSMManagedEC2InstanceDefaultPolicy",
-    "arn:aws:iam::aws:policy/AmazonEC2ContainerServiceforEC2Role",
+    "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role",
     "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
     "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
   ]
@@ -254,7 +256,7 @@ resource "aws_iam_instance_profile" "main" {
 resource "aws_launch_template" "ecs_instance_template" {
   name = "${var.stack_name}-launch-template"
 
-  launch_template_data {
+
     iam_instance_profile {
       arn = aws_iam_instance_profile.main.arn
     }
@@ -274,7 +276,6 @@ resource "aws_launch_template" "ecs_instance_template" {
     metadata_options {
       http_endpoint = "enabled"
     }
-  }
 }
 
 # Auto Scaling Group
@@ -285,8 +286,8 @@ resource "aws_autoscaling_group" "ecs_instance_asg" {
   ]
 
   launch_template {
-    LaunchTemplateId = aws_launch_template.ecs_instance_template.id
-    Version          = "$Latest"
+    launch_template_name = aws_launch_template.ecs_instance_template.name
+    version             = aws_launch_template.ecs_instance_template.latest_version
   }
 
   availability_zones = [
@@ -328,6 +329,8 @@ resource "aws_ecs_task_definition" "main" {
   network_mode             = "awsvpc"
   requires_compatibilities = ["EC2"]
 
+  execution_role_arn       = aws_iam_role.ecs_execution_role.arn
+
   container_definitions = jsonencode([{
     name      = "web"
     cpu       = var.ecs_task_cpu
@@ -356,6 +359,10 @@ resource "aws_lb" "main" {
   load_balancer_type = "application"
   security_groups    = [aws_security_group.load_balancer.id]
   subnets            = [aws_subnet.public_az1.id, aws_subnet.public_az2.id]
+
+  tags = {
+    Name = aws_ecs_cluster.main.name
+  }
 }
 
 # Target Group
@@ -372,6 +379,7 @@ resource "aws_lb_target_group" "main" {
     timeout             = 9
     healthy_threshold   = 3
     unhealthy_threshold = 3
+    port                = 80
   }
 
   target_type = "ip"
@@ -390,7 +398,12 @@ resource "aws_lb_listener" "main" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.main.arn
+    forward {
+      target_group {
+        arn    = aws_lb_target_group.main.arn
+        weight = 100
+      }
+    }
   }
 }
 
@@ -400,7 +413,10 @@ resource "aws_lb_listener_rule" "main" {
 
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.main.arn
+    target_group {
+      arn    = aws_lb_target_group.main.arn
+      weight = 100
+    }
   }
 
   condition {
@@ -428,7 +444,7 @@ resource "aws_ecs_service" "main" {
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.main.arn
   desired_count   = 1
-  launch_type     = "EC2"
+  
   network_configuration {
     awsvpc_configuration {
       security_groups = [aws_security_group.service.id]
