@@ -56,4 +56,10 @@ public class ControladorHolaMundo {
         return Collections.singletonMap("resultado", String.valueOf(sum01 * sum02));
     }
 
+    @RequestMapping(value = "/div/{sum01}/{sum02}", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
+    public @ResponseBody
+    Map div(@PathVariable("sum01") Integer sum01, @PathVariable("sum02") Integer sum02) {
+        return Collections.singletonMap("resultado", String.valueOf(sum01 / sum02));
+    }
+
 }
